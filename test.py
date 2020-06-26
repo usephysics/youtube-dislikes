@@ -3,7 +3,7 @@ import re
 import time
 from bs4 import BeautifulSoup
 
-# https://en.wikipedia.org/wiki/List_of_most-disliked_YouTube_videosp
+# https://en.wikipedia.org/wiki/List_of_most-disliked_YouTube_videos
 
 # goes through the page history and returns 1 URL for each month
 def get_URLS():
@@ -12,19 +12,23 @@ def get_URLS():
     URLs = []
     months = ["January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"]
-    active_month = ""
-    while len(URLs) < 5:
+    num_months = 1 # number of months in domain
+    active_month = ""   # check used to only return 1 URL per month
+    while len(URLs) < num_months:
         page = requests.get(URL).text
         soup = BeautifulSoup(page, "lxml")
         table = soup.find(id="pagehistory").findAll("li")
+        # look at every date on page, except the first because it doesn't fit format
         for entry in table[1:]:
-            if len(URLs) < 5:
+            if len(URLs) < num_months:
                 date = entry.findAll("a")[2].text
                 for month in months:
                     if month in date and month != active_month:
                         active_month = month
-                        URLs.append(("https://en.wikipedia.org" + entry.findAll("a")[2]["href"], month))
+                        idx = date.index(month[0]) # to add year as well as month
+                        URLs.append(("https://en.wikipedia.org" + entry.findAll("a")[2]["href"], date[idx:]))
         URL = "https://en.wikipedia.org" + soup.find("a", {"class":"mw-nextlink"})["href"]
+        time.sleep(5) # wikipedia pls no ban
     return URLs
 
 # this function visits a given URL and returns a list containing the top 10 most disliked videos
@@ -33,13 +37,29 @@ def scrape_page(URL):
     page = requests.get(URL).text
     soup = BeautifulSoup(page, "lxml")
     table = soup.find("tbody").findAll("tr")
-    entries = table[1:11]
+    entries = table[1:11] # rank 1 - 10
     videos = []
 
     for row in entries:
         title = re.findall(r'"([^"]*)"', row.findAll()[1].text)[0]
         uploader = row.findAll(["th", "td"])[2].text
         dislikes = row.findAll(["th", "td"])[3].text
+        # earlier versions of the page used thousands of dislikes as their unit
         if float(dislikes) > 150: dislikes = float(dislikes) / 1000
         videos.append([title, uploader, dislikes])
     return(videos)
+
+data = []
+URLs = get_URLS()
+while(URLs):
+    URL, month = URLs.pop()
+    data.append([month, scrape_page(URL)])
+
+for month in data:
+    print("Month: " + month[0] + ". Song: " + month[1][0][0] + ". Dislikes (Millions): " + month[1][0][2])
+
+# data[] --> Represents a month, ex: all data for June 2020
+# data[][0] --> The month as a string, ex: "June 2020"
+# data[][1] --> The top 10 for a given month, ex: List holding all info for top 10 most disliked videos in June 2020
+# data[][1][x] --> The placement for the given month. ex: The xth most disliked video for June 2020
+# data[][1][x][y] --> The data. 0 = Title, 1 = Uploader, 2 = Dislikes. ex: "YouTube Rewind 2018"
