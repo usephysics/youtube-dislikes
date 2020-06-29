@@ -43,7 +43,7 @@ def scrape_page(URL):
     for row in entries:
         title = re.findall(r'"([^"]*)"', row.findAll(["th", "td"])[1].text)[0]
         uploader = row.findAll(["th", "td"])[2].text
-        if uploader == "YouTube Spotlight": uploader: "YouTube" # name change mid way through
+        if uploader == "YouTube Spotlight": uploader = "YouTube" # name change mid way through
         dislikes = row.findAll(["th", "td"])[3].text
         # earlier versions of the page used thousands of dislikes as their unit
         if float(dislikes) > 150: dislikes = str(float(dislikes) / 1000)
